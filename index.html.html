@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Spot the AI: Writing Detection Quiz</title>
+<style>
+  :root{
+    --bg:#0f1117;
+    --card:#171a23;
+    --border:#2a2e3a;
+    --text:#e8e9ed;
+    --muted:#9a9fae;
+    --accent:#7c9eff;
+    --good:#5ec98c;
+    --bad:#e8615f;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:Georgia, 'Times New Roman', serif;
+    line-height:1.55;
+    padding:32px 16px 80px;
+  }
+  .wrap{max-width:760px;margin:0 auto;}
+  h1{font-size:1.7rem;margin-bottom:4px;font-weight:600;}
+  .sub{font-family:Helvetica, Arial, sans-serif;color:var(--muted);font-size:0.95rem;margin-bottom:24px;}
+  .progress{font-family:Helvetica, Arial, sans-serif;font-size:0.85rem;color:var(--muted);margin-bottom:8px;}
+  .bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:24px;}
+  .bar-fill{height:100%;background:var(--accent);width:0%;transition:width .3s ease;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:24px 26px;margin-bottom:18px;}
+  .qnum{font-family:Helvetica, Arial, sans-serif;font-size:0.8rem;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin-bottom:10px;}
+  .passage{font-size:1.03rem;margin-bottom:18px;padding:14px 16px;background:#10131b;border-left:3px solid var(--border);border-radius:4px;}
+  .options{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;font-family:Helvetica, Arial, sans-serif;}
+  .opt{flex:1;min-width:110px;padding:10px 14px;border:1px solid var(--border);border-radius:7px;background:#1c2030;color:var(--text);cursor:pointer;text-align:center;font-size:0.9rem;transition:border-color .15s, background .15s;}
+  .opt:hover{border-color:var(--accent);}
+  .opt.selected{border-color:var(--accent); background:#23283d;}
+  .opt.correct{border-color:var(--good); background:#16291f;}
+  .opt.incorrect{border-color:var(--bad); background:#2b1818;}
+  .check-btn{font-family:Helvetica, Arial, sans-serif;background:var(--accent);color:#0f1117;border:none;padding:9px 18px;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.88rem;}
+  .check-btn:disabled{opacity:.4;cursor:not-allowed;}
+  .feedback{margin-top:16px;padding:14px 16px;border-radius:7px;font-family:Helvetica, Arial, sans-serif;font-size:0.9rem;display:none;}
+  .feedback.show{display:block;}
+  .feedback.right{background:#13241a; border:1px solid var(--good);}
+  .feedback.wrong{background:#241414; border:1px solid var(--bad);}
+  .feedback b{display:block; margin-bottom:6px;}
+  .tells{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);color:var(--muted);}
+  .tells span{display:inline-block;background:#1c2030;border:1px solid var(--border);border-radius:20px;padding:3px 10px;margin:3px 4px 0 0;font-size:0.78rem;}
+  .summary{text-align:center;padding:36px 20px;display:none;}
+  .summary.show{display:block;}
+  .score{font-size:3rem;font-weight:700;color:var(--accent);font-family:Helvetica, Arial, sans-serif;}
+  .summary p{font-family:Helvetica, Arial, sans-serif;color:var(--muted);}
+  .restart{margin-top:16px;font-family:Helvetica, Arial, sans-serif;background:transparent;border:1px solid var(--border);color:var(--text);padding:9px 18px;border-radius:6px;cursor:pointer;}
+  .landing{text-align:center;padding:50px 20px;}
+  .landing input{
+    font-family:Helvetica, Arial, sans-serif;
+    width:100%;max-width:300px;
+    padding:10px 14px;
+    border-radius:7px;
+    border:1px solid var(--border);
+    background:#10131b;
+    color:var(--text);
+    font-size:1rem;
+    margin:14px 0;
+  }
+  .landing .check-btn{padding:11px 28px;font-size:0.95rem;}
+  .savenote{font-family:Helvetica, Arial, sans-serif;font-size:0.78rem;color:var(--muted);margin-top:10px;}
+  .admin-link{
+    position:fixed;
+    bottom:10px;
+    right:14px;
+    font-family:Helvetica, Arial, sans-serif;
+    font-size:0.7rem;
+    color:var(--border);
+    cursor:pointer;
+    text-decoration:none;
+  }
+  .admin-link:hover{color:var(--muted);}
+  .admin-panel{display:none;}
+  .admin-panel.show{display:block;}
+  table{width:100%;border-collapse:collapse;font-family:Helvetica, Arial, sans-serif;font-size:0.85rem;margin-top:10px;}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);}
+  th{color:var(--muted);font-weight:600;}
+  .err{color:var(--bad);font-family:Helvetica, Arial, sans-serif;font-size:0.85rem;}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<a class="admin-link" id="adminToggle">admin</a>
+
+<script>
+const questions = [
+  { text: "The quarterly numbers tell a clear story. Revenue grew 12% year over year, driven primarily by our enterprise segment, which saw a 28% increase in new contracts. It is important to note, however, that this growth was not uniform across all regions. Moreover, customer churn remained a persistent challenge, underscoring the need for continued investment in retention strategies.",
+    answer: "ai", explanation: "Balanced 'on one hand / however' structure, the hedge phrase 'it is important to note,' and the soft closing generalization are classic AI smoothing patterns.",
+    tells: ["hedge opener","however pivot","vague closing statement","moreover transition"] },
+  { text: "Honestly the Q3 numbers were better than I expected but I'm still nervous about Europe — we lost two accounts there last month and nobody's figured out why yet. Enterprise is carrying the team right now, 28% up, which is great, but I don't love that we're this dependent on one segment.",
+    answer: "human", explanation: "Specific unresolved detail, a blunt opinion stated without hedging, and uneven sentence rhythm are hard for AI to produce naturally.",
+    tells: ["unresolved specific detail","blunt opinion","irregular rhythm"] },
+  { text: "Choosing the right project management tool can feel overwhelming, but it doesn't have to be. Here are three key factors to consider: ease of use, integration capabilities, and pricing flexibility. By keeping these in mind, you'll be well on your way to finding a solution that fits your team's unique needs.",
+    answer: "ai", explanation: "The rule-of-three list, reassuring opener, and empowering closer are textbook generic AI marketing voice.",
+    tells: ["rule of three","reassurance opener","empowering closer","generic phrasing"] },
+  { text: "I tried four PM tools this month and honestly Asana won mostly because our designers already knew it. Linear was faster but nobody outside engineering wanted to learn it. Notion lost points for being too easy to turn into a mess.",
+    answer: "human", explanation: "Idiosyncratic reasoning tied to a real team's specific quirks rather than generic criteria is a strong human signal.",
+    tells: ["situational specificity","informal causal logic","named real constraint"] },
+  { text: "Climate change represents one of the most pressing challenges of our time. It affects every aspect of our lives, from the food we eat to the air we breathe. As global temperatures continue to rise, it becomes increasingly clear that immediate action is needed to address this critical issue.",
+    answer: "ai", explanation: "Sweeping vague claims with no specific data, circular restatement, and no concrete fact or source.",
+    tells: ["sweeping generality","circular restatement","no concrete data","filler significance claim"] },
+  { text: "My grandfather used to say the lake froze later every year, and by the time I was in high school the ice fishing huts that used to go out in early December weren't going out till January. That's not a study, that's just what I watched happen.",
+    answer: "human", explanation: "Personal anecdote, a self-aware caveat about its own limitations, and a specific ungeneralized timeframe.",
+    tells: ["self-aware caveat","personal anecdote","specific timeframe"] },
+  { text: "In today's fast-paced digital landscape, effective communication has never been more important. Whether you're leading a team or collaborating across departments, mastering the art of clear messaging can make all the difference. Let's explore some strategies that can help you communicate with greater impact.",
+    answer: "ai", explanation: "'In today's fast-paced digital landscape' is one of the most common AI stock openers, paired with a 'let's explore' transition.",
+    tells: ["stock opener phrase","let's explore transition","no real subject yet"] },
+  { text: "Look, I've sat through enough of these all-hands to know that 'communicate with greater impact' usually means someone wants us to send shorter emails. So: shorter emails. That's the strategy.",
+    answer: "human", explanation: "Sarcasm, a deliberate subversion of corporate language, and an abrupt punchline ending are still strong human tells.",
+    tells: ["sarcasm","subverts cliche","abrupt punchline"] },
+  { text: "Effective onboarding is crucial for employee retention and long-term success. A well-structured onboarding process not only helps new hires acclimate to company culture but also equips them with the tools and knowledge they need to excel in their roles. Investing in onboarding pays dividends down the line.",
+    answer: "ai", explanation: "Generic claims stacked together ('crucial', 'pays dividends') with no specific company, numbers, or example given.",
+    tells: ["stacked generic claims","no specific example","business cliche closer"] },
+  { text: "We onboarded Priya in like two days flat because we finally wrote down where the Figma files actually live. Took us three years to do that. Should've done it after the second new hire got lost in our folder structure.",
+    answer: "human", explanation: "Named person, exact comic detail ('lost in our folder structure'), and self-deprecating timeline admission.",
+    tells: ["named individual","self-deprecating admission","oddly specific comic detail"] },
+  { text: "Artificial intelligence is transforming industries across the globe, from healthcare to finance to education. As organizations continue to adopt AI-powered solutions, it is essential to consider both the opportunities and challenges that come with this technological shift.",
+    answer: "ai", explanation: "Listy three-industry example, 'it is essential to consider' hedge, and 'opportunities and challenges' false balance.",
+    tells: ["three-item list","essential to consider hedge","false balance phrasing"] },
+  { text: "Tried to get our support team to use the new AI chatbot and within a week they were just copy-pasting its replies straight to customers without reading them. That's on us for rushing the rollout, not on the bot.",
+    answer: "human", explanation: "Specific failure mode described candidly, with self-blame attributed to a particular decision rather than a vague lesson.",
+    tells: ["candid failure admission","specific behavior described","direct self-blame"] },
+  { text: "Remote work offers numerous benefits, including increased flexibility, improved work-life balance, and reduced commuting time. However, it also presents unique challenges, such as maintaining team cohesion and ensuring effective communication across time zones.",
+    answer: "ai", explanation: "Paired three-item benefit/challenge lists in a mirrored 'however' structure is a near-template AI pattern.",
+    tells: ["mirrored pro/con lists","however pivot","triplet structure"] },
+  { text: "Three time zones in on this team and I still can't find a meeting slot that doesn't screw someone over. We just rotate who gets the bad one now. Feels fairer than pretending there's a slot that works for everyone.",
+    answer: "human", explanation: "Concrete unresolved logistics problem with a specific workaround, told without resolving it into a neat lesson.",
+    tells: ["concrete logistics problem","practical workaround","no tidy resolution"] },
+  { text: "Customer feedback is an invaluable resource for product development. By actively listening to user concerns and suggestions, companies can make informed decisions that drive innovation and enhance the overall customer experience.",
+    answer: "ai", explanation: "Abstract nouns stacked together ('invaluable resource', 'informed decisions', 'drive innovation') with zero concrete example.",
+    tells: ["abstract noun stacking","no concrete example","corporate buzzword density"] },
+  { text: "One user emailed us three times in a week just to complain the export button moved two pixels. We almost ignored it until we realized forty other people had the muscle memory broken too. Moved it back.",
+    answer: "human", explanation: "Hyper-specific, slightly absurd detail ('two pixels') and a concrete resolution tied to a real number of users.",
+    tells: ["hyper-specific absurd detail","real numeric detail","concrete resolution"] },
+  { text: "The future of work is evolving rapidly, with hybrid models becoming increasingly popular among organizations of all sizes. As companies navigate this new landscape, they must balance employee preferences with operational needs to create a sustainable and productive work environment.",
+    answer: "ai", explanation: "Vague trend-claim opener ('evolving rapidly'), no source or data, and a balancing-act closer that says nothing concrete.",
+    tells: ["vague trend claim","no source given","balancing act closer"] },
+  { text: "We tried hybrid, full remote, and mandatory three-days, in that order, over eighteen months. Mandatory three-days is the one people actually quit over. So that's dead now.", 
+    answer: "human", explanation: "Specific sequence of real experiments with a timeframe and a blunt, consequence-driven conclusion.",
+    tells: ["sequential real experiments","specific timeframe","blunt consequence-driven conclusion"] },
+  { text: "Building a strong company culture requires intentional effort and consistent reinforcement of core values. Leaders play a critical role in modeling desired behaviors and fostering an environment where employees feel valued, heard, and empowered to contribute their best work.",
+    answer: "ai", explanation: "Triplet adjective stack ('valued, heard, and empowered') and abstract leadership language with no named person or event.",
+    tells: ["triplet adjective stack","abstract leadership language","no named example"] },
+  { text: "Our 'core values' poster has been in the breakroom since 2019 and I genuinely don't think anyone has read past 'integrity.' Maybe that's fine. Maybe culture is just what happens when nobody's looking at the poster anyway.",
+    answer: "human", explanation: "Wry, specific observation with a real year and a closing thought that's reflective rather than resolved or instructive.",
+    tells: ["wry specific observation","real date reference","unresolved reflective close"] }
+];
+
+let current = 0;
+let score = 0;
+let answered = false;
+let selectedOption = null;
+let userName = "";
+
+const app = document.getElementById('app');
+const adminToggle = document.getElementById('adminToggle');
+let adminOpen = false;
+
+function renderLanding(){
+  app.innerHTML = `
+    <div class="landing">
+      <h1>Spot the AI</h1>
+      <div class="sub">20 passages. Decide human-written or AI-generated for each. Your score is recorded automatically when you finish.</div>
+      <input type="text" id="nameInput" placeholder="Enter your name" />
+      <br/>
+      <button class="check-btn" id="startBtn">Start Quiz</button>
+      <div id="landingErr" class="err"></div>
+    </div>
+  `;
+  document.getElementById('startBtn').addEventListener('click', ()=>{
+    const val = document.getElementById('nameInput').value.trim();
+    if(!val){
+      document.getElementById('landingErr').textContent = "Please enter your name to begin.";
+      return;
+    }
+    userName = val;
+    current = 0;
+    score = 0;
+    renderQuiz();
+  });
+}
+
+function renderQuiz(){
+  answered = false;
+  selectedOption = null;
+  const q = questions[current];
+
+  app.innerHTML = `
+    <h1>Spot the AI</h1>
+    <div class="sub">Attempting as: <strong>${userName}</strong></div>
+    <div class="progress">Question ${current+1} of ${questions.length}</div>
+    <div class="bar"><div class="bar-fill" style="width:${(current/questions.length*100)}%"></div></div>
+    <div class="card">
+      <div class="qnum">Passage ${current+1}</div>
+      <div class="passage">${q.text}</div>
+      <div class="options">
+        <div class="opt" data-val="human">Human-written</div>
+        <div class="opt" data-val="ai">AI-generated</div>
+      </div>
+      <button class="check-btn" id="checkBtn" disabled>Reveal Answer</button>
+      <div class="feedback" id="feedback"></div>
+    </div>
+  `;
+
+  document.querySelectorAll('.opt').forEach(opt=>{
+    opt.addEventListener('click', ()=>{
+      if(answered) return;
+      document.querySelectorAll('.opt').forEach(o=>o.classList.remove('selected'));
+      opt.classList.add('selected');
+      selectedOption = opt.dataset.val;
+      document.getElementById('checkBtn').disabled = false;
+    });
+  });
+
+  document.getElementById('checkBtn').addEventListener('click', ()=>{
+    if(!selectedOption || answered) return;
+    answered = true;
+    const correct = selectedOption === q.answer;
+    if(correct) score++;
+
+    document.querySelectorAll('.opt').forEach(o=>{
+      if(o.dataset.val === q.answer) o.classList.add('correct');
+      else if(o.dataset.val === selectedOption) o.classList.add('incorrect');
+    });
+
+    const fb = document.getElementById('feedback');
+    fb.className = 'feedback show ' + (correct ? 'right' : 'wrong');
+    fb.innerHTML = `
+      <b>${correct ? 'Correct' : 'Not quite'} — this was ${q.answer === 'ai' ? 'AI-generated' : 'human-written'}.</b>
+      ${q.explanation}
+      <div class="tells">Common tells: ${q.tells.map(t=>`<span>${t}</span>`).join('')}</div>
+    `;
+
+    const btn = document.getElementById('checkBtn');
+    btn.textContent = current === questions.length - 1 ? 'See Results' : 'Next Question';
+    btn.disabled = false;
+    btn.onclick = nextStep;
+  });
+}
+
+function nextStep(){
+  current++;
+  if(current >= questions.length){
+    finishQuiz();
+  } else {
+    renderQuiz();
+  }
+}
+
+async function finishQuiz(){
+  app.innerHTML = `
+    <div class="summary show">
+      <div class="score">${score} / ${questions.length}</div>
+      <p id="saveStatus">Saving your result...</p>
+      <button class="restart" id="restartBtn">Try Again</button>
+    </div>
+  `;
+
+  try{
+    const record = {
+      name: userName,
+      score: score,
+      total: questions.length,
+      timestamp: new Date().toISOString()
+    };
+    const key = `result:${userName.replace(/\s+/g,'_')}:${Date.now()}`;
+    const result = await window.storage.set(key, JSON.stringify(record), true);
+    document.getElementById('saveStatus').textContent = result
+      ? "Result saved. Your score has been recorded."
+      : "Could not save result — please tell your facilitator your score manually.";
+  } catch(e){
+    document.getElementById('saveStatus').textContent = "Could not save result — please tell your facilitator your score manually.";
+  }
+
+  document.getElementById('restartBtn').addEventListener('click', renderLanding);
+}
+
+async function renderAdmin(){
+  app.innerHTML = `
+    <h1>Admin: Results</h1>
+    <div class="sub">All recorded attempts, most recent first.</div>
+    <div id="adminBody">Loading...</div>
+    <br/>
+    <button class="restart" id="backBtn">Back to Quiz</button>
+  `;
+  document.getElementById('backBtn').addEventListener('click', ()=>{ adminOpen=false; renderLanding(); });
+
+  try{
+    const list = await window.storage.list('result:', true);
+    const keys = (list && list.keys) ? list.keys : [];
+    if(keys.length === 0){
+      document.getElementById('adminBody').innerHTML = '<p class="sub">No attempts recorded yet.</p>';
+      return;
+    }
+    const records = [];
+    for(const k of keys){
+      try{
+        const r = await window.storage.get(k, true);
+        if(r && r.value) records.push(JSON.parse(r.value));
+      } catch(e){}
+    }
+    records.sort((a,b)=> new Date(b.timestamp) - new Date(a.timestamp));
+    let rows = records.map(r => `
+      <tr>
+        <td>${r.name}</td>
+        <td>${r.score} / ${r.total}</td>
+        <td>${new Date(r.timestamp).toLocaleString()}</td>
+      </tr>
+    `).join('');
+    document.getElementById('adminBody').innerHTML = `
+      <table>
+        <tr><th>Name</th><th>Score</th><th>Submitted</th></tr>
+        ${rows}
+      </table>
+    `;
+  } catch(e){
+    document.getElementById('adminBody').innerHTML = '<p class="err">Could not load results.</p>';
+  }
+}
+
+adminToggle.addEventListener('click', ()=>{
+  adminOpen = !adminOpen;
+  if(adminOpen) renderAdmin();
+  else renderLanding();
+});
+
+renderLanding();
+</script>
+</body>
+</html>
